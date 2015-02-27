@@ -276,7 +276,7 @@ end
 EVENT_MANAGER:RegisterForEvent(
     Config.name,
     EVENT_ADD_ON_LOADED,
-    function (event, addonName)
+    function (_, addonName)
         if addonName ~= Config.name then
             return
         end
