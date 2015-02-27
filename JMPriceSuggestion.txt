@@ -1,0 +1,8 @@
+## Title: JMPriceSuggestion
+## APIVersion: 100010
+## DependsOn: JMGuildSaleHistoryTracker
+## Version: 0.1
+## Author: Jordy Moos
+## Description: Price suggestion for items
+
+JMPriceSuggestion.lua
