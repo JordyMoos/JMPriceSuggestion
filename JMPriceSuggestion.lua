@@ -229,7 +229,8 @@ function Suggestor:getPriceSuggestion(itemLink, algorithm)
 
     if #(result.suggestedPriceForGuild) then
         local bestGuild = self:getBestGuild(result.suggestedPriceForGuild)
-        result.bestPrice = result.suggestedPriceForGuild[bestGuild]
+        result.bestPrice.guildName = bestGuild
+        result.bestPrice.pricePerPiece = result.suggestedPriceForGuild[bestGuild].pricePerPiece
     end
 
     return result
