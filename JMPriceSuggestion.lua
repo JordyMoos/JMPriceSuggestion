@@ -105,16 +105,28 @@ end
 
 --[[
 
-    List of Algorithms
+    Algorithms
 
  ]]
 
-local AlgorithmList = {
+---
+-- List of possible algorithms
+--
+local Algorithms = {
+    MOST_EXPENSIVE = 'JMPriceSuggestion_Most_Expensive',
+    CHEAPEST = 'JMPriceSuggestion_Cheapest',
+    MEDIAN = 'JMPriceSuggestion_Median',
+    NEWEST = 'JMPriceSuggestion_Newest',
+    AVERAGE = 'JMPriceSuggestion_Average',
+}
 
+
+local AlgorithmFunctionList = {
+
+    ---
     -- Return the most expensive price
-    ['Most expensive price'] = function(saleList)
-
-    -- Sort on most expensive first
+    --
+    [Algorithms.MOST_EXPENSIVE] = function(saleList)
         table.sort(saleList, function (a, b)
             return a.pricePerPiece > b.pricePerPiece
         end)
@@ -122,10 +134,10 @@ local AlgorithmList = {
         return saleList[1].pricePerPiece
     end,
 
+    ---
     -- Return the cheapest price
-    ['Cheapest price'] = function(saleList)
-
-    -- Sort on most expensive first
+    --
+    [Algorithms.CHEAPEST] = function(saleList)
         table.sort(saleList, function (a, b)
             return a.pricePerPiece > b.pricePerPiece
         end)
@@ -133,10 +145,10 @@ local AlgorithmList = {
         return saleList[#saleList].pricePerPiece
     end,
 
+    ---
     -- Return the median price
-    ['Median price'] = function(saleList)
-
-    -- Sort on most expensive first
+    --
+    [Algorithms.MEDIAN] = function(saleList)
         table.sort(saleList, function (a, b)
             return a.pricePerPiece > b.pricePerPiece
         end)
@@ -146,11 +158,10 @@ local AlgorithmList = {
         return saleList[index].pricePerPiece
     end,
 
+    ---
     -- Return the newest price
-    ['Newest price'] = function(saleList)
-
-    -- Sort on sale timestamp
-    -- The newest will now be the first sale
+    --
+    [Algorithms.NEWEST] = function(saleList)
         table.sort(saleList, function (a, b)
             return a.saleTimestamp > b.saleTimestamp
         end)
@@ -158,8 +169,10 @@ local AlgorithmList = {
         return saleList[1].pricePerPiece
     end,
 
+    ---
     -- Return the average price
-    ['Average price'] = function(saleList)
+    --
+    [Algorithms.AVERAGE] = function(saleList)
         local totalPrice = 0
         for _, sale in ipairs(saleList) do
             totalPrice = totalPrice + sale.pricePerPiece
@@ -184,7 +197,7 @@ local AlgorithmHelper = {}
 function AlgorithmHelper:getNameList()
     local nameList = {}
 
-    for name, _ in pairs(AlgorithmList) do
+    for name, _ in pairs(AlgorithmFunctionList) do
         table.insert(nameList, name)
     end
 
@@ -295,13 +308,9 @@ EVENT_MANAGER:RegisterForEvent(
 JMPriceSuggestion = {
 
     ---
-    -- Returns list of algorithm names
+    -- Constants of possible events
     --
-    -- @todo algorithms should be constants like events in other addons
-    --
-    getAlgorithms = function()
-        return AlgorithmHelper:getNameList()
-    end,
+    algorithms = Algorithms,
 
     ---
     --
@@ -311,11 +320,11 @@ JMPriceSuggestion = {
             return
         end
 
-        if not AlgorithmList[algorithmName] then
-            d('Error: Invalid algorithm name for JMPriceSuggestion.getPriceSuggestion')
+        if not AlgorithmFunctionList[algorithmName] then
+            d('Error: Invalid algorithm for JMPriceSuggestion.getPriceSuggestion')
             return
         end
 
-        return Suggestor:getPriceSuggestion(itemLink, AlgorithmList[algorithmName])
+        return Suggestor:getPriceSuggestion(itemLink, AlgorithmFunctionList[algorithmName])
     end,
 }
