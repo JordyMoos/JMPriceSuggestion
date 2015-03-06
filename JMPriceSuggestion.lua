@@ -248,6 +248,7 @@ local AlgorithmFunctionList = {
 
         for _, sale in ipairs(allSaleList) do
             local weight = getAgeWeight(sale)
+
             totalWeight = totalWeight + weight
             sum = sum + weight * sale.pricePerPiece
             squareSum = squareSum + weight * (sale.pricePerPiece * sale.pricePerPiece)
