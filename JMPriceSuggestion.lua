@@ -34,13 +34,26 @@ local History = {}
 -- @param itemLink
 --
 function History:getCodeFromItemLink(itemLink)
-    return itemLink
-    --    return string.format(
-    --        '%d_%d_%d',
-    --        GetItemLinkQuality(itemLink),
-    --        GetItemLinkRequiredLevel(itemLink),
-    --        GetItemLinkRequiredVeteranRank(itemLink)
-    --    )
+
+--    return itemLink
+
+    local _, setName = GetItemLinkSetInfo(itemLink)
+    local glyphMinLevel, glyphMaxLevel, glyphMinVetLevel, glyphMaxVetLevel = GetItemLinkGlyphMinMaxLevels(itemLink)
+    return string.format(
+        '%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s',
+        GetItemLinkQuality(itemLink),
+        GetItemLinkRequiredLevel(itemLink),
+        GetItemLinkRequiredVeteranRank(itemLink),
+        GetItemLinkWeaponPower(itemLink),
+        GetItemLinkArmorRating(itemLink),
+        GetItemLinkValue(itemLink),
+        GetItemLinkMaxEnchantCharges(itemLink),
+        setName,
+        glyphMinLevel or '',
+        glyphMaxLevel or '',
+        glyphMinVetLevel or '',
+        glyphMaxVetLevel or ''
+    )
 end
 
 ---
@@ -113,11 +126,12 @@ end
 -- List of possible algorithms
 --
 local Algorithms = {
-    MOST_EXPENSIVE = 'JMPriceSuggestion_Most_Expensive',
-    CHEAPEST = 'JMPriceSuggestion_Cheapest',
-    MEDIAN = 'JMPriceSuggestion_Median',
-    NEWEST = 'JMPriceSuggestion_Newest',
-    AVERAGE = 'JMPriceSuggestion_Average',
+    MOST_EXPENSIVE = 'Most Expensive',
+    CHEAPEST = 'Cheapest',
+    MEDIAN = 'Median',
+    NEWEST = 'Newest',
+    AVERAGE = 'Average',
+    NORMAL = 'Normal',
 }
 
 
@@ -131,7 +145,7 @@ local AlgorithmFunctionList = {
             return a.pricePerPiece > b.pricePerPiece
         end)
 
-        return saleList[1].pricePerPiece
+        return saleList[1].pricePerPiece, saleList[1].saleTimestamp
     end,
 
     ---
@@ -142,7 +156,7 @@ local AlgorithmFunctionList = {
             return a.pricePerPiece > b.pricePerPiece
         end)
 
-        return saleList[#saleList].pricePerPiece
+        return saleList[#saleList].pricePerPiece, saleList[#saleList].saleTimestamp
     end,
 
     ---
@@ -155,7 +169,7 @@ local AlgorithmFunctionList = {
 
         local index = math.ceil(#saleList / 2)
 
-        return saleList[index].pricePerPiece
+        return saleList[index].pricePerPiece, saleList[index].saleTimestamp
     end,
 
     ---
@@ -166,7 +180,7 @@ local AlgorithmFunctionList = {
             return a.saleTimestamp > b.saleTimestamp
         end)
 
-        return saleList[1].pricePerPiece
+        return saleList[1].pricePerPiece, saleList[1].saleTimestamp
     end,
 
     ---
@@ -179,6 +193,58 @@ local AlgorithmFunctionList = {
         end
 
         return math.ceil(totalPrice / #saleList)
+    end,
+
+    ---
+    -- Marcus' normal
+    --
+    [Algorithms.NORMAL] = function(guildSaleList, allSaleList)
+        local function probit(x)
+            local function inverseError(x)
+                local a = 0.147
+
+                if x == 0 then
+                    return 0
+                end
+
+                local log = math.log(1 - x * x)
+                local log_div_2 = log / 2
+                local b = log_div_2 + 2 / math.pi / a
+                local first_root = math.sqrt(b * b - log / 2)
+                local second_root = math.sqrt(first_root - b)
+
+                if x > 0 then
+                    return second_root
+                end
+
+                return -1 * second_root
+            end
+
+            return (inverseError(x * 2 - 1) * math.sqrt(2))
+        end
+
+        local saleProbability = 0.8
+        local saleCount = #allSaleList
+        local sum = 0
+        local squareSum = 0
+
+        if saleCount < 2 then
+            return math.ceil(allSaleList[1].pricePerPiece * 0.9)
+        end
+
+        for _, sale in ipairs(allSaleList) do
+            sum = sum + sale.pricePerPiece
+            squareSum = squareSum + (sale.pricePerPiece * sale.pricePerPiece)
+        end
+
+        local average = sum / saleCount
+        local variance = (saleCount * squareSum - sum * sum) / saleCount / (saleCount - 1)
+        local standardDeviation = math.sqrt(variance)
+--        d('stdev: ' .. standardDeviation)
+--        d('avg: ' .. average)
+--        d('probit: ' .. probit(1 - saleProbability))
+
+        return math.ceil(probit(1 - saleProbability) * standardDeviation + average)
     end,
 }
 
@@ -223,27 +289,32 @@ function Suggestor:getPriceSuggestion(itemLink, algorithm)
     local guildSaleList = History:groupSaleListPerGuild(saleList)
 
     local result = {
-        hasPrice = #saleList ~= 0,
+        hasPrice = #saleList > 0,
         saleCount = #saleList,
         lastSaleTimestamp = lastSaleTimestamp,
         suggestedPriceForGuild = {},
         bestPrice = {
             guildName = nil,
+            saleCount = nil,
             pricePerPiece = nil,
         },
     }
 
     for guildName, saleListOfGuild in pairs(guildSaleList) do
+        local pricePerPiece, saleTimestamp = algorithm(saleListOfGuild, saleList)
         result.suggestedPriceForGuild[guildName] = {
             saleCount = #saleListOfGuild,
-            pricePerPiece = algorithm(saleListOfGuild),
+            pricePerPiece = pricePerPiece,
+            saleTimestamp = saleTimestamp,
         }
     end
 
-    if #(result.suggestedPriceForGuild) then
+    if result.hasPrice then
         local bestGuild = self:getBestGuild(result.suggestedPriceForGuild)
         result.bestPrice.guildName = bestGuild
+        result.bestPrice.saleCount = result.suggestedPriceForGuild[bestGuild].saleCount
         result.bestPrice.pricePerPiece = result.suggestedPriceForGuild[bestGuild].pricePerPiece
+        result.bestPrice.saleTimestamp = result.suggestedPriceForGuild[bestGuild].saleTimestamp
     end
 
     return result

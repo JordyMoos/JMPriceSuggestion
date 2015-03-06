@@ -1,5 +1,5 @@
 ## Title: JMPriceSuggestion
-## APIVersion: 100010
+## APIVersion: 100011
 ## DependsOn: JMGuildSaleHistoryTracker
 ## Version: 0.1
 ## Author: Jordy Moos
