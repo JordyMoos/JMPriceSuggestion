@@ -230,7 +230,7 @@ local AlgorithmFunctionList = {
                 return math.max(1, (40 / log / log))
             end
         
-            local ageSeconds = getTimeStamp() - sale.saleTimestamp
+            local ageSeconds = GetTimeStamp() - sale.saleTimestamp
             local ageHours = ageSeconds / 3600
             
             return logWeight(ageHours)
@@ -248,7 +248,6 @@ local AlgorithmFunctionList = {
 
         for _, sale in ipairs(allSaleList) do
             local weight = getAgeWeight(sale)
-            
             totalWeight = totalWeight + weight
             sum = sum + weight * sale.pricePerPiece
             squareSum = squareSum + weight * (sale.pricePerPiece * sale.pricePerPiece)
