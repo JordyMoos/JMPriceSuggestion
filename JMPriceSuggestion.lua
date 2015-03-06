@@ -236,17 +236,16 @@ local AlgorithmFunctionList = {
                 
                 return logWeight(ageHours)
             end
-
-            local saleCount = #allSaleList
+            
             local sum = 0
             local squareSum = 0
             local totalWeight = 0
 
-            if saleCount < 2 then
-                return math.ceil(allSaleList[1].pricePerPiece * 0.9), totalWeight
+            if #saleList < 2 then
+                return math.ceil(saleList[1].pricePerPiece * 0.9), totalWeight
             end
 
-            for _, sale in ipairs(allSaleList) do
+            for _, sale in ipairs(saleList) do
                 local weight = getAgeWeight(sale)
                 
                 totalWeight = totalWeight + weight
