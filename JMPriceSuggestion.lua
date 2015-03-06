@@ -237,26 +237,37 @@ local AlgorithmFunctionList = {
         end
 
         local saleProbability = 0.8
-        local saleCount = #allSaleList
-        local sum = 0
-        local squareSum = 0
         local totalWeight = 0
+        local weights = {}
 
-        if saleCount < 2 then
+        if #allSaleList < 2 then
             return math.ceil(allSaleList[1].pricePerPiece * 0.9)
         end
-
-        for _, sale in ipairs(allSaleList) do
-            local weight = getAgeWeight(sale)
-
-            totalWeight = totalWeight + weight
-            sum = sum + weight * sale.pricePerPiece
-            squareSum = squareSum + weight * (sale.pricePerPiece * sale.pricePerPiece)
+        
+        -- compute weights
+        for i, sale in ipairs(allSaleList) do
+            weights[i] = getAgeWeight(sale)
+            totalWeight = totalWeight + weights[i]
+        end
+        
+        -- compute average
+        local sum = 0
+        
+        for i, sale in ipairs(allSaleList) do
+            sum = sum + weights[i] * sale.pricePerPiece
         end
 
         local average = sum / totalWeight
-        local variance = (totalWeight * squareSum - sum * sum) / totalWeight / (totalWeight - 1)
-        local standardDeviation = math.sqrt(variance)
+        
+        -- compute stddev
+        local totalDist = 0
+        
+        for i, sale in ipairs(allSaleList) do
+            local dist = average - weights[i] * sale.pricePerPiece
+            totalDist = totalDist + dist * dist
+        end
+        
+        local standardDeviation = math.sqrt(totalDist / (totalWeight - 1))
 
         return math.ceil(probit(1 - saleProbability) * standardDeviation + average)
     end,
