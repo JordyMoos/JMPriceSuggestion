@@ -222,27 +222,41 @@ local AlgorithmFunctionList = {
 
             return (inverseError(x * 2 - 1) * math.sqrt(2))
         end
+        
+        local function getAgeWeight(sale)
+            local function logWeight(hours)
+                local log = math.log(20 + hours)
+            
+                return math.max(1, (40 / log / log))
+            end
+        
+            local ageSeconds = getTimeStamp() - sale.saleTimestamp
+            local ageHours = ageSeconds / 3600
+            
+            return logWeight(ageHours)
+        end
 
         local saleProbability = 0.8
         local saleCount = #allSaleList
         local sum = 0
         local squareSum = 0
+        local totalWeight = 0
 
         if saleCount < 2 then
             return math.ceil(allSaleList[1].pricePerPiece * 0.9)
         end
 
         for _, sale in ipairs(allSaleList) do
-            sum = sum + sale.pricePerPiece
-            squareSum = squareSum + (sale.pricePerPiece * sale.pricePerPiece)
+            local weight = getAgeWeight(sale)
+            
+            totalWeight = totalWeight + weight
+            sum = sum + weight * sale.pricePerPiece
+            squareSum = squareSum + weight * (sale.pricePerPiece * sale.pricePerPiece)
         end
 
-        local average = sum / saleCount
-        local variance = (saleCount * squareSum - sum * sum) / saleCount / (saleCount - 1)
+        local average = sum / totalWeight
+        local variance = (totalWeight * squareSum - sum * sum) / totalWeight / (totalWeight - 1)
         local standardDeviation = math.sqrt(variance)
---        d('stdev: ' .. standardDeviation)
---        d('avg: ' .. average)
---        d('probit: ' .. probit(1 - saleProbability))
 
         return math.ceil(probit(1 - saleProbability) * standardDeviation + average)
     end,
