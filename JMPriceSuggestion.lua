@@ -199,66 +199,75 @@ local AlgorithmFunctionList = {
     -- Marcus' normal
     --
     [Algorithms.NORMAL] = function(guildSaleList, allSaleList)
-        local function probit(x)
-            local function inverseError(x)
-                local a = 0.147
+        local function getPrice(quantile, saleList) 
+            local function probit(x)
+                local function inverseError(x)
+                    local a = 0.147
 
-                if x == 0 then
-                    return 0
+                    if x == 0 then
+                        return 0
+                    end
+
+                    local log = math.log(1 - x * x)
+                    local log_div_2 = log / 2
+                    local b = log_div_2 + 2 / math.pi / a
+                    local first_root = math.sqrt(b * b - log / 2)
+                    local second_root = math.sqrt(first_root - b)
+
+                    if x > 0 then
+                        return second_root
+                    end
+
+                    return -1 * second_root
                 end
 
-                local log = math.log(1 - x * x)
-                local log_div_2 = log / 2
-                local b = log_div_2 + 2 / math.pi / a
-                local first_root = math.sqrt(b * b - log / 2)
-                local second_root = math.sqrt(first_root - b)
-
-                if x > 0 then
-                    return second_root
+                return (inverseError(x * 2 - 1) * math.sqrt(2))
+            end
+            
+            local function getAgeWeight(sale)
+                local function logWeight(hours)
+                    local log = math.log(30 + hours)
+                
+                    return math.max(1, (40 / log / log))
                 end
-
-                return -1 * second_root
+            
+                local ageSeconds = getTimeStamp() - sale.saleTimestamp
+                local ageHours = ageSeconds / 3600
+                
+                return logWeight(ageHours)
             end
 
-            return (inverseError(x * 2 - 1) * math.sqrt(2))
-        end
-        
-        local function getAgeWeight(sale)
-            local function logWeight(hours)
-                local log = math.log(20 + hours)
-            
-                return math.max(1, (40 / log / log))
-            end
-        
-            local ageSeconds = getTimeStamp() - sale.saleTimestamp
-            local ageHours = ageSeconds / 3600
-            
-            return logWeight(ageHours)
-        end
+            local saleCount = #allSaleList
+            local sum = 0
+            local squareSum = 0
+            local totalWeight = 0
 
+            if saleCount < 2 then
+                return math.ceil(allSaleList[1].pricePerPiece * 0.9), totalWeight
+            end
+
+            for _, sale in ipairs(allSaleList) do
+                local weight = getAgeWeight(sale)
+                
+                totalWeight = totalWeight + weight
+                sum = sum + weight * sale.pricePerPiece
+                squareSum = squareSum + weight * (sale.pricePerPiece * sale.pricePerPiece)
+            end
+
+            local average = sum / totalWeight
+            local variance = (totalWeight * squareSum - sum * sum) / totalWeight / (totalWeight - 1)
+            local standardDeviation = math.sqrt(variance)
+
+            return math.ceil(probit(1 - quantile) * standardDeviation + average), totalWeight
+        end
+        
         local saleProbability = 0.8
-        local saleCount = #allSaleList
-        local sum = 0
-        local squareSum = 0
-        local totalWeight = 0
-
-        if saleCount < 2 then
-            return math.ceil(allSaleList[1].pricePerPiece * 0.9)
-        end
-
-        for _, sale in ipairs(allSaleList) do
-            local weight = getAgeWeight(sale)
-            
-            totalWeight = totalWeight + weight
-            sum = sum + weight * sale.pricePerPiece
-            squareSum = squareSum + weight * (sale.pricePerPiece * sale.pricePerPiece)
-        end
-
-        local average = sum / totalWeight
-        local variance = (totalWeight * squareSum - sum * sum) / totalWeight / (totalWeight - 1)
-        local standardDeviation = math.sqrt(variance)
-
-        return math.ceil(probit(1 - saleProbability) * standardDeviation + average)
+        
+        local guildPrice, guildWeight = getPrice(saleProbability, guildSaleList)
+        local globalPrice, _ = getPrice(saleProbability, allSaleList)
+        local modifier = 1 / math.sqrt(math.max(1, guildWeight / 2))
+        
+        return modifier * globalPrice + (1 - modifier) * guildPrice
     end,
 }
 
