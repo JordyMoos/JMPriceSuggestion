@@ -231,31 +231,38 @@ local AlgorithmFunctionList = {
                     return math.max(1, (40 / log / log))
                 end
             
-                local ageSeconds = getTimeStamp() - sale.saleTimestamp
+                local ageSeconds = GetTimeStamp() - sale.saleTimestamp
                 local ageHours = ageSeconds / 3600
                 
                 return logWeight(ageHours)
             end
             
-            local sum = 0
-            local squareSum = 0
-            local totalWeight = 0
-
             if #saleList < 2 then
-                return math.ceil(saleList[1].pricePerPiece * 0.9), totalWeight
+                return math.ceil(allSaleList[1].pricePerPiece * 0.9)
             end
-
-            for _, sale in ipairs(saleList) do
-                local weight = getAgeWeight(sale)
-                
-                totalWeight = totalWeight + weight
-                sum = sum + weight * sale.pricePerPiece
-                squareSum = squareSum + weight * (sale.pricePerPiece * sale.pricePerPiece)
+            
+            -- compute weights and average      
+            local totalWeight = 0
+            local weights = {}
+            local sum = 0
+            
+            for i, sale in ipairs(allSaleList) do
+                weights[i] = getAgeWeight(sale)
+                totalWeight = totalWeight + weights[i]
+                sum = sum + weights[i] * sale.pricePerPiece
             end
 
             local average = sum / totalWeight
-            local variance = (totalWeight * squareSum - sum * sum) / totalWeight / (totalWeight - 1)
-            local standardDeviation = math.sqrt(variance)
+            
+            -- compute stddev
+            local totalDist = 0
+            
+            for i, sale in ipairs(allSaleList) do
+                local dist = average - sale.pricePerPiece
+                totalDist = totalDist + weights[i] * dist * dist
+            end
+            
+            local standardDeviation = math.sqrt(totalDist / (totalWeight - 1))
 
             return math.ceil(probit(1 - quantile) * standardDeviation + average), totalWeight
         end
