@@ -34,26 +34,67 @@ local History = {}
 -- @param itemLink
 --
 function History:getCodeFromItemLink(itemLink)
-
 --    return itemLink
 
-    local _, setName = GetItemLinkSetInfo(itemLink)
+--    local array = {ZO_LinkHandler_ParseLink(itemLink) }
+--
+--    if #array ~= 24 then
+--        d('Not 24?' .. #array)
+--    end
+--
+----    array["20"] = 0 -- Crafted
+----    array["22"] = 0 -- Stolen
+----    array["23"] = 0 -- Condition
+--
+--   return table.concat(array, '_')
+
+
+
+--    return itemLink
+---[[
+
+    local _, setName, setBonusCount, _ = GetItemLinkSetInfo(itemLink)
     local glyphMinLevel, glyphMaxLevel, glyphMinVetLevel, glyphMaxVetLevel = GetItemLinkGlyphMinMaxLevels(itemLink)
+    local _, enchantHeader, _ = GetItemLinkEnchantInfo(itemLink)
+    local hasAbility, abilityHeader, _ = GetItemLinkOnUseAbilityInfo(itemLink)
+    local traitType, _ = GetItemLinkTraitInfo(itemLink)
+    local craftingSkillRank = GetItemLinkRequiredCraftingSkillRank(itemLink)
+
+    local abilityInfo = abilityHeader
+    if not hasAbility then
+        for i = 1, GetMaxTraits() do
+            local hasTraitAbility, traitAbilityDescription, _ = GetItemLinkTraitOnUseAbilityInfo(itemLink, i)
+            if(hasTraitAbility) then
+                abilityInfo = abilityInfo .. ':' .. traitAbilityDescription
+            end
+        end
+    end
+
     return string.format(
-        '%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s',
+        '%s_%s_%s_%s_%s_' .. '%s_%s_%s_%s_%s_' .. '%s_%s_%s_%s_%s_' .. '%s_%s',
+
         GetItemLinkQuality(itemLink),
         GetItemLinkRequiredLevel(itemLink),
         GetItemLinkRequiredVeteranRank(itemLink),
         GetItemLinkWeaponPower(itemLink),
         GetItemLinkArmorRating(itemLink),
+
         GetItemLinkValue(itemLink),
         GetItemLinkMaxEnchantCharges(itemLink),
         setName,
         glyphMinLevel or '',
         glyphMaxLevel or '',
+
         glyphMinVetLevel or '',
-        glyphMaxVetLevel or ''
+        glyphMaxVetLevel or '',
+        enchantHeader,
+        traitType or '',
+        setBonusCount or '',
+
+        craftingSkillRank,
+        abilityInfo
     )
+---]]--
 end
 
 ---
@@ -238,7 +279,7 @@ local AlgorithmFunctionList = {
             end
             
             if #saleList < 2 then
-                return math.ceil(allSaleList[1].pricePerPiece * 0.9)
+                return math.ceil(allSaleList[1].pricePerPiece * 0.9), 0
             end
             
             -- compute weights and average      
@@ -267,13 +308,13 @@ local AlgorithmFunctionList = {
             return math.ceil(probit(1 - quantile) * standardDeviation + average), totalWeight
         end
         
-        local saleProbability = 0.8
+        local saleProbability = 0.65
         
         local guildPrice, guildWeight = getPrice(saleProbability, guildSaleList)
         local globalPrice, _ = getPrice(saleProbability, allSaleList)
-        local modifier = 1 / math.sqrt(math.max(1, guildWeight / 2))
+        local modifier = 1 / math.sqrt(1 + guildWeight / 2)
         
-        return modifier * globalPrice + (1 - modifier) * guildPrice
+        return math.ceil(modifier * globalPrice + (1 - modifier) * guildPrice)
     end,
 }
 
@@ -307,6 +348,22 @@ end
 
 local Suggestor = {}
 
+function Suggestor:adjustForCurrentListings(price, guildName, itemId)
+    local itemList = JMTradingHouseSnapshot.getByGuildAndItem(guildName, itemId)
+
+    if #itemList == 0 then
+        return math.ceil(1.05 * price)
+    end
+
+    local sum = 0
+
+    for _, item in ipairs(itemList) do
+        sum = sum + item.pricePerPiece
+    end
+
+    return math.ceil(math.min(price, 0.95 * sum / #itemList))
+end
+
 ---
 -- @param itemLink
 --
@@ -333,7 +390,7 @@ function Suggestor:getPriceSuggestion(itemLink, algorithm)
         local pricePerPiece, saleTimestamp = algorithm(saleListOfGuild, saleList)
         result.suggestedPriceForGuild[guildName] = {
             saleCount = #saleListOfGuild,
-            pricePerPiece = pricePerPiece,
+            pricePerPiece = Suggestor:adjustForCurrentListings(pricePerPiece, guildName, itemId),
             saleTimestamp = saleTimestamp,
         }
     end
