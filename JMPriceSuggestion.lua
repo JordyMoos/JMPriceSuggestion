@@ -36,17 +36,13 @@ local History = {}
 function History:getCodeFromItemLink(itemLink)
 --    return itemLink
 
---    local array = {ZO_LinkHandler_ParseLink(itemLink) }
+--    local array = {ZO_LinkHandler_ParseLink(itemLink)}
+--    array[6] = 0 -- Looted from
+--    array[20] = 0 -- Crafted
+--    array[22] = 0 -- Stolen
+--    array[23] = 0 -- Condition
 --
---    if #array ~= 24 then
---        d('Not 24?' .. #array)
---    end
---
-----    array["20"] = 0 -- Crafted
-----    array["22"] = 0 -- Stolen
-----    array["23"] = 0 -- Condition
---
---   return table.concat(array, '_')
+--    return table.concat(array, '_')
 
 
 
@@ -106,14 +102,14 @@ end
 function History:getSaleListFromItem(itemLink, itemId)
     -- Get sale history of this item id
     local saleList = JMGuildSaleHistoryTracker.getSalesFromItemId(itemId)
-    local itemCode = History:getCodeFromItemLink(itemLink)
+    local itemCode = JMItemCode.getCode(itemLink)
 
     -- Remove sales which are not really the same
     -- Like not having the same level etc
     -- Desided by the itemCode
     for saleIndex = #(saleList), 1, -1 do
         local sale = saleList[saleIndex]
-        local saleCode = History:getCodeFromItemLink(sale.itemLink)
+        local saleCode = JMItemCode.getCode(sale.itemLink)
 
         if itemCode ~= saleCode then
             table.remove(saleList, saleIndex)
