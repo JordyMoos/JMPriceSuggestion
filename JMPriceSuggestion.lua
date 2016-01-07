@@ -346,6 +346,9 @@ local Suggestor = {}
 
 function Suggestor:adjustForCurrentListings(price, guildName, itemId)
     local itemList = JMTradingHouseSnapshot.getByGuildAndItem(guildName, itemId)
+    if itemList == false then
+        return price
+    end
 
     if #itemList == 0 then
         return math.ceil(1.05 * price)
